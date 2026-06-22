@@ -12,13 +12,17 @@ const orderSchema = new mongoose.Schema(
       },
     ],
     totalPrice: { type: Number, required: true, min: 0 },
+    paymentMethod: { type: String, enum: ['COD'], default: 'COD' },
+    paymentStatus: { type: String, enum: ['Unpaid', 'Paid'], default: 'Unpaid' },
     shippingAddress: {
+      fullName: { type: String, required: true, trim: true },
+      phone: { type: String, required: true, trim: true },
       address: { type: String, required: true },
       city: { type: String, required: true },
       postalCode: { type: String },
       country: { type: String, required: true },
     },
-    status: { type: String, default: 'Pending' },
+    status: { type: String, enum: ['Pending', 'Confirmed', 'Shipping', 'Completed', 'Cancelled'], default: 'Pending' },
   },
   { timestamps: true }
 );

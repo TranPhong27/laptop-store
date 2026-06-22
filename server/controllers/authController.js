@@ -1,8 +1,10 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 
 const generateToken = (id) => jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const userResponse = (user) => ({
   _id: user._id,
@@ -11,32 +13,6 @@ const userResponse = (user) => ({
   role: user.role,
   token: generateToken(user._id),
 });
-
-const verifyGoogleCredential = async (credential) => {
-  const googleClientId = process.env.GOOGLE_CLIENT_ID;
-  if (!googleClientId) {
-    throw new Error('GOOGLE_CLIENT_ID is not configured');
-  }
-
-  const response = await fetch(
-    `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`
-  );
-
-  if (!response.ok) {
-    throw new Error('Invalid Google credential');
-  }
-
-  const payload = await response.json();
-  if (payload.aud !== googleClientId) {
-    throw new Error('Google credential audience mismatch');
-  }
-
-  if (payload.email_verified !== 'true' && payload.email_verified !== true) {
-    throw new Error('Google email is not verified');
-  }
-
-  return payload;
-};
 
 exports.register = async (req, res) => {
   try {
@@ -71,13 +47,26 @@ exports.googleLogin = async (req, res) => {
       return res.status(400).json({ message: 'Google credential is required' });
     }
 
-    const payload = await verifyGoogleCredential(credential);
-    const email = payload.email.toLowerCase();
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      return res.status(500).json({ message: 'GOOGLE_CLIENT_ID is not configured' });
+    }
 
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+
+    if (!payload?.email || !payload.email_verified) {
+      return res.status(401).json({ message: 'Google email is not verified' });
+    }
+
+    const email = payload.email.toLowerCase();
     let user = await User.findOne({ email });
+
     if (user) {
       user.googleId = payload.sub;
-      user.authProvider = user.authProvider || 'google';
+      if (!user.authProvider) user.authProvider = 'google';
       if (!user.name && payload.name) user.name = payload.name;
       await user.save();
     } else {
@@ -92,6 +81,6 @@ exports.googleLogin = async (req, res) => {
 
     res.json(userResponse(user));
   } catch (err) {
-    res.status(401).json({ message: err.message || 'Google login failed' });
+    res.status(401).json({ message: 'Google login failed' });
   }
 };

@@ -5,6 +5,9 @@ const productController = require('../controllers/productController');
 const { protect, isAdmin } = require('../middleware/auth');
 
 router.get('/', productController.getProducts);
+router.get('/compare', productController.compareProducts);
+router.get('/admin', protect, isAdmin, productController.getAdminProducts);
+router.get('/admin/:id', protect, isAdmin, productController.getAdminProductById);
 router.get('/:id', productController.getProductById);
 router.post('/', protect, isAdmin, productController.createProduct);
 router.put('/:id', protect, isAdmin, productController.updateProduct);

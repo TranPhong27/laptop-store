@@ -13,9 +13,9 @@ const protect = async (req, res, next) => {
       req.user = await User.findById(decoded.id).select('-password');
       return next();
     }
-    return res.status(401).json({ message: 'Not authorized, no token' });
+    return res.status(401).json({ message: 'Không được phép, thiếu token' });
   } catch (err) {
-    return res.status(401).json({ message: 'Not authorized, token failed' });
+    return res.status(401).json({ message: 'Không được phép, token không hợp lệ' });
   }
 };
 
@@ -23,7 +23,7 @@ const isAdmin = (req, res, next) => {
   if (req.user && req.user.role === 'admin') {
     return next();
   }
-  return res.status(403).json({ message: 'Require admin role' });
+  return res.status(403).json({ message: 'Yêu cầu quyền admin' });
 };
 
 module.exports = { protect, isAdmin };
